@@ -1,3 +1,8 @@
+## 2.4.0
+
+- Added `titleActionsBuilder` to all `DatePicker.show*` methods, letting you replace the default Cancel/Done title bar with your own widget.
+- Expanded test coverage and clarified the internal date/time model logic (no behavior change).
+
 ## 2.3.0
 
 - Added translations for `ta`.
