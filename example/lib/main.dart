@@ -251,6 +251,41 @@ class HomePage extends StatelessWidget {
                   'show custom time picker,\nyou can custom picker model like this',
                   style: TextStyle(color: Colors.blue),
                 )),
+            TextButton(
+                onPressed: () {
+                  picker.DatePicker.showDatePicker(context,
+                      showTitleActions: true,
+                      currentTime: DateTime.now(),
+                      locale: picker.LocaleType.en,
+                      // Give the custom bar a little more room than the default.
+                      theme: picker.DatePickerTheme(titleHeight: 56),
+                      titleActionsBuilder:
+                          (context, onCancel, onConfirm, currentTime) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          TextButton(
+                              onPressed: onCancel, child: const Text('Close')),
+                          Text(
+                            '${currentTime.year}-${currentTime.month}-${currentTime.day}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextButton(
+                              onPressed: onConfirm, child: const Text('Pick')),
+                        ],
+                      ),
+                    );
+                  }, onConfirm: (date) {
+                    print('confirm $date');
+                  });
+                },
+                child: Text(
+                  'show date picker (custom title bar)',
+                  style: TextStyle(color: Colors.blue),
+                )),
           ],
         ),
       ),
