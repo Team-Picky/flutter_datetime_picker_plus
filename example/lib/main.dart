@@ -100,10 +100,9 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: Text('Datetime Picker'),
       ),
-      body: Center(
-        child: Column(
-          children: <Widget>[
-            TextButton(
+      body: ListView(
+        children: <Widget>[
+          TextButton(
                 onPressed: () {
                   picker.DatePicker.showDatePicker(context,
                       showTitleActions: true,
@@ -286,8 +285,7 @@ class HomePage extends StatelessWidget {
                   'show date picker (custom title bar)',
                   style: TextStyle(color: Colors.blue),
                 )),
-          ],
-        ),
+        ],
       ),
     );
   }
