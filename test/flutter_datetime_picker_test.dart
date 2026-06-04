@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 // date_format.dart is internal (not re-exported by the barrel), imported
@@ -341,6 +344,88 @@ void main() {
 
     test('null locale falls back to English', () {
       expect(i18nObjInLocale(null), i18nObjInLocale(LocaleType.en));
+    });
+  });
+
+  group('DatePicker.titleActionsBuilder', () {
+    // Pumps a host app and returns a BuildContext from which a picker can be
+    // shown.
+    Future<BuildContext> pumpHost(WidgetTester tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (context) {
+          ctx = context;
+          return const SizedBox();
+        }),
+      ));
+      return ctx;
+    }
+
+    testWidgets('replaces the default Cancel/Done bar', (tester) async {
+      final ctx = await pumpHost(tester);
+
+      unawaited(DatePicker.showDatePicker(
+        ctx,
+        titleActionsBuilder: (context, onCancel, onConfirm, currentTime) {
+          // Lightweight widgets that fit within the fixed title height.
+          return Row(
+            children: [
+              GestureDetector(onTap: onCancel, child: const Text('Nope')),
+              GestureDetector(onTap: onConfirm, child: const Text('Yep')),
+            ],
+          );
+        },
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Yep'), findsOneWidget);
+      expect(find.text('Nope'), findsOneWidget);
+      // The built-in bar is gone.
+      expect(find.text('Done'), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+    });
+
+    testWidgets('custom confirm pops with the selection and fires onConfirm',
+        (tester) async {
+      final ctx = await pumpHost(tester);
+
+      DateTime? confirmed;
+      final future = DatePicker.showDatePicker(
+        ctx,
+        currentTime: DateTime(2020, 5, 10),
+        onConfirm: (date) => confirmed = date,
+        titleActionsBuilder: (context, onCancel, onConfirm, currentTime) {
+          return GestureDetector(onTap: onConfirm, child: const Text('Yep'));
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Yep'));
+      await tester.pumpAndSettle();
+
+      expect(await future, DateTime(2020, 5, 10));
+      expect(confirmed, DateTime(2020, 5, 10));
+    });
+
+    testWidgets('custom cancel pops with null and fires onCancel',
+        (tester) async {
+      final ctx = await pumpHost(tester);
+
+      var cancelled = false;
+      final future = DatePicker.showDatePicker(
+        ctx,
+        onCancel: () => cancelled = true,
+        titleActionsBuilder: (context, onCancel, onConfirm, currentTime) {
+          return GestureDetector(onTap: onCancel, child: const Text('Nope'));
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Nope'));
+      await tester.pumpAndSettle();
+
+      expect(await future, isNull);
+      expect(cancelled, isTrue);
     });
   });
 }

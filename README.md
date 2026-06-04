@@ -168,6 +168,34 @@ class CustomPicker extends CommonPickerModel {
 }
 ```
 
+### Custom title bar
+
+By default every picker shows a Cancel/Done bar above the wheels. Pass a
+`titleActionsBuilder` to any `DatePicker.show*` method to replace it with your
+own widget. The builder receives `onCancel` / `onConfirm` callbacks (which
+dismiss the picker the same way the default buttons do) and the currently
+selected `DateTime`:
+
+```dart
+DatePicker.showDatePicker(
+  context,
+  titleActionsBuilder: (context, onCancel, onConfirm, currentTime) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton(onPressed: onCancel, child: const Text('Close')),
+        Text('${currentTime.year}-${currentTime.month}-${currentTime.day}'),
+        TextButton(onPressed: onConfirm, child: const Text('Pick')),
+      ],
+    );
+  },
+);
+```
+
+The bar is laid out within the theme's `titleHeight`, so keep your widget
+within that height (or raise `titleHeight` via a custom `DatePickerTheme`). The
+builder is only used when `showTitleActions` is `true` (the default).
+
 
 ## Getting Started
 

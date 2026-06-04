@@ -17,6 +17,23 @@ typedef DateChangedCallback(DateTime time);
 typedef DateCancelledCallback();
 typedef String? StringAtIndexCallBack(int index);
 
+/// Builds a replacement for the default Cancel/Done title bar.
+///
+/// Call [onCancel] to dismiss the picker (also fires the `onCancel` callback);
+/// call [onConfirm] to dismiss it returning the current selection (also fires
+/// the `onConfirm` callback). [currentTime] is the value currently selected by
+/// the wheels.
+///
+/// The returned widget is laid out within the theme's `titleHeight`, so keep
+/// it within that height (or raise `titleHeight` on a custom `DatePickerTheme`).
+/// Only used when `showTitleActions` is `true`.
+typedef Widget TitleActionsBuilder(
+  BuildContext context,
+  VoidCallback onCancel,
+  VoidCallback onConfirm,
+  DateTime currentTime,
+);
+
 class DatePicker {
   ///
   /// Display date picker bottom sheet.
@@ -32,6 +49,7 @@ class DatePicker {
     locale = LocaleType.en,
     DateTime? currentTime,
     picker_theme.DatePickerTheme? theme,
+    TitleActionsBuilder? titleActionsBuilder,
   }) async {
     return await Navigator.push(
       context,
@@ -42,6 +60,7 @@ class DatePicker {
         onCancel: onCancel,
         locale: locale,
         theme: theme,
+        titleActionsBuilder: titleActionsBuilder,
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
         pickerModel: DatePickerModel(
@@ -67,6 +86,7 @@ class DatePicker {
     locale = LocaleType.en,
     DateTime? currentTime,
     picker_theme.DatePickerTheme? theme,
+    TitleActionsBuilder? titleActionsBuilder,
   }) async {
     return await Navigator.push(
       context,
@@ -77,6 +97,7 @@ class DatePicker {
         onCancel: onCancel,
         locale: locale,
         theme: theme,
+        titleActionsBuilder: titleActionsBuilder,
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
         pickerModel: TimePickerModel(
@@ -100,6 +121,7 @@ class DatePicker {
     locale = LocaleType.en,
     DateTime? currentTime,
     picker_theme.DatePickerTheme? theme,
+    TitleActionsBuilder? titleActionsBuilder,
   }) async {
     return await Navigator.push(
       context,
@@ -110,6 +132,7 @@ class DatePicker {
         onCancel: onCancel,
         locale: locale,
         theme: theme,
+        titleActionsBuilder: titleActionsBuilder,
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
         pickerModel: Time12hPickerModel(
@@ -134,6 +157,7 @@ class DatePicker {
     locale = LocaleType.en,
     DateTime? currentTime,
     picker_theme.DatePickerTheme? theme,
+    TitleActionsBuilder? titleActionsBuilder,
   }) async {
     return await Navigator.push(
       context,
@@ -144,6 +168,7 @@ class DatePicker {
         onCancel: onCancel,
         locale: locale,
         theme: theme,
+        titleActionsBuilder: titleActionsBuilder,
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
         pickerModel: DateTimePickerModel(
@@ -168,6 +193,7 @@ class DatePicker {
     locale = LocaleType.en,
     BasePickerModel? pickerModel,
     picker_theme.DatePickerTheme? theme,
+    TitleActionsBuilder? titleActionsBuilder,
   }) async {
     return await Navigator.push(
       context,
@@ -178,6 +204,7 @@ class DatePicker {
         onCancel: onCancel,
         locale: locale,
         theme: theme,
+        titleActionsBuilder: titleActionsBuilder,
         barrierLabel:
             MaterialLocalizations.of(context).modalBarrierDismissLabel,
         pickerModel: pickerModel,
@@ -195,6 +222,7 @@ class _DatePickerRoute<T> extends PopupRoute<T> {
     picker_theme.DatePickerTheme? theme,
     this.barrierLabel,
     this.locale,
+    this.titleActionsBuilder,
     RouteSettings? settings,
     BasePickerModel? pickerModel,
   })  : this.pickerModel = pickerModel ?? DatePickerModel(),
@@ -208,6 +236,7 @@ class _DatePickerRoute<T> extends PopupRoute<T> {
   final LocaleType? locale;
   final picker_theme.DatePickerTheme theme;
   final BasePickerModel pickerModel;
+  final TitleActionsBuilder? titleActionsBuilder;
 
   @override
   Duration get transitionDuration => const Duration(milliseconds: 200);
@@ -470,8 +499,28 @@ class _DatePickerState extends State<_DatePickerComponent> {
     );
   }
 
+  void _onCancel() {
+    Navigator.pop(context);
+    widget.route.onCancel?.call();
+  }
+
+  void _onConfirm() {
+    Navigator.pop(context, widget.pickerModel.finalTime());
+    widget.route.onConfirm?.call(widget.pickerModel.finalTime()!);
+  }
+
   // Title View
   Widget _renderTitleActionsView(picker_theme.DatePickerTheme theme) {
+    final builder = widget.route.titleActionsBuilder;
+    if (builder != null) {
+      return builder(
+        context,
+        _onCancel,
+        _onConfirm,
+        widget.pickerModel.finalTime()!,
+      );
+    }
+
     final done = _localeDone();
     final cancel = _localeCancel();
 
@@ -492,12 +541,7 @@ class _DatePickerState extends State<_DatePickerComponent> {
                 '$cancel',
                 style: theme.cancelStyle,
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                if (widget.route.onCancel != null) {
-                  widget.route.onCancel!();
-                }
-              },
+              onPressed: _onCancel,
             ),
           ),
           Container(
@@ -509,12 +553,7 @@ class _DatePickerState extends State<_DatePickerComponent> {
                 '$done',
                 style: theme.doneStyle,
               ),
-              onPressed: () {
-                Navigator.pop(context, widget.pickerModel.finalTime());
-                if (widget.route.onConfirm != null) {
-                  widget.route.onConfirm!(widget.pickerModel.finalTime()!);
-                }
-              },
+              onPressed: _onConfirm,
             ),
           ),
         ],
