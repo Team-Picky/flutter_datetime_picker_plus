@@ -518,7 +518,22 @@ class Time12hPickerModel extends CommonPickerModel {
   }
 }
 
-// a date&time picker model
+// A date & time picker model.
+//
+// Columns are: left = day (offset from [currentTime], index 0 is its day),
+// middle = hour, right = minute.
+//
+// To honor [minTime]/[maxTime] the hour and minute columns are *windowed* on
+// the boundary days:
+//   - On the min day the hour column starts at minTime.hour, so middle index 0
+//     maps to minTime.hour. At that earliest hour the minute column likewise
+//     starts at minTime.minute.
+//   - On the max day the hour column ends at maxTime.hour. At that latest hour
+//     the minute column ends at maxTime.minute. (Minute index 0 still maps to
+//     minute 0, exactly like any non-boundary day.)
+//
+// The index→DateTime offsets applied for the min day are undone in
+// [finalTime].
 class DateTimePickerModel extends CommonPickerModel {
   DateTime? maxTime;
   DateTime? minTime;
@@ -557,7 +572,7 @@ class DateTimePickerModel extends CommonPickerModel {
     if (this.minTime != null &&
         this.maxTime != null &&
         this.maxTime!.isBefore(this.minTime!)) {
-      // invalid
+      // Invalid range: ignore both bounds.
       this.minTime = null;
       this.maxTime = null;
     }
@@ -565,13 +580,24 @@ class DateTimePickerModel extends CommonPickerModel {
     _currentLeftIndex = 0;
     _currentMiddleIndex = this.currentTime.hour;
     _currentRightIndex = this.currentTime.minute;
-    if (this.minTime != null && isAtSameDay(this.minTime!, this.currentTime)) {
-      _currentMiddleIndex = this.currentTime.hour - this.minTime!.hour;
+    // On the min day the columns are offset so index 0 lands on the bound.
+    if (_isMinDay(this.currentTime)) {
+      final bound = minTime!;
+      _currentMiddleIndex = this.currentTime.hour - bound.hour;
       if (_currentMiddleIndex == 0) {
-        _currentRightIndex = this.currentTime.minute - this.minTime!.minute;
+        _currentRightIndex = this.currentTime.minute - bound.minute;
       }
     }
   }
+
+  /// The calendar day shown at [dayIndex] of the left column.
+  DateTime _dayAt(int dayIndex) => currentTime.add(Duration(days: dayIndex));
+
+  /// Whether [time] falls on the same day as [minTime] (false if unbounded).
+  bool _isMinDay(DateTime time) => isAtSameDay(minTime, time);
+
+  /// Whether [time] falls on the same day as [maxTime] (false if unbounded).
+  bool _isMaxDay(DateTime time) => isAtSameDay(maxTime, time);
 
   bool isAtSameDay(DateTime? day1, DateTime? day2) {
     return day1 != null &&
@@ -583,44 +609,40 @@ class DateTimePickerModel extends CommonPickerModel {
   @override
   void setLeftIndex(int index) {
     super.setLeftIndex(index);
-    DateTime time = currentTime.add(Duration(days: index));
-    if (isAtSameDay(minTime, time)) {
-      var index = min(24 - minTime!.hour - 1, _currentMiddleIndex);
-      this.setMiddleIndex(index);
-    } else if (isAtSameDay(maxTime, time)) {
-      var index = min(maxTime!.hour, _currentMiddleIndex);
-      this.setMiddleIndex(index);
+    DateTime time = _dayAt(index);
+    // Re-clamp the hour selection into the window allowed on a boundary day.
+    if (_isMinDay(time)) {
+      final maxHourIndex = 24 - minTime!.hour - 1;
+      setMiddleIndex(min(maxHourIndex, _currentMiddleIndex));
+    } else if (_isMaxDay(time)) {
+      setMiddleIndex(min(maxTime!.hour, _currentMiddleIndex));
     }
   }
 
   @override
   void setMiddleIndex(int index) {
     super.setMiddleIndex(index);
-    DateTime time = currentTime.add(Duration(days: _currentLeftIndex));
-    if (isAtSameDay(minTime, time) && index == 0) {
-      var maxIndex = 60 - minTime!.minute - 1;
-      if (_currentRightIndex > maxIndex) {
-        _currentRightIndex = maxIndex;
+    DateTime time = _dayAt(_currentLeftIndex);
+    // Re-clamp the minute selection into the window allowed on a boundary day.
+    if (_isMinDay(time) && index == 0) {
+      final maxMinuteIndex = 60 - minTime!.minute - 1;
+      if (_currentRightIndex > maxMinuteIndex) {
+        _currentRightIndex = maxMinuteIndex;
       }
-    } else if (isAtSameDay(maxTime, time) &&
-        _currentMiddleIndex == maxTime!.hour) {
-      var maxIndex = maxTime!.minute;
-      if (_currentRightIndex > maxIndex) {
-        _currentRightIndex = maxIndex;
+    } else if (_isMaxDay(time) && _currentMiddleIndex == maxTime!.hour) {
+      final maxMinuteIndex = maxTime!.minute;
+      if (_currentRightIndex > maxMinuteIndex) {
+        _currentRightIndex = maxMinuteIndex;
       }
     }
   }
 
   @override
   String? leftStringAtIndex(int index) {
-    DateTime time = currentTime.add(Duration(days: index));
-    if (minTime != null &&
-        time.isBefore(minTime!) &&
-        !isAtSameDay(minTime!, time)) {
+    DateTime time = _dayAt(index);
+    if (minTime != null && time.isBefore(minTime!) && !_isMinDay(time)) {
       return null;
-    } else if (maxTime != null &&
-        time.isAfter(maxTime!) &&
-        !isAtSameDay(maxTime, time)) {
+    } else if (maxTime != null && time.isAfter(maxTime!) && !_isMaxDay(time)) {
       return null;
     }
     return formatDate(time, [ymdw], locale);
@@ -628,59 +650,47 @@ class DateTimePickerModel extends CommonPickerModel {
 
   @override
   String? middleStringAtIndex(int index) {
-    if (index >= 0 && index < 24) {
-      DateTime time = currentTime.add(Duration(days: _currentLeftIndex));
-      if (isAtSameDay(minTime, time)) {
-        if (index >= 0 && index < 24 - minTime!.hour) {
-          return digits(minTime!.hour + index, 2);
-        } else {
-          return null;
-        }
-      } else if (isAtSameDay(maxTime, time)) {
-        if (index >= 0 && index <= maxTime!.hour) {
-          return digits(index, 2);
-        } else {
-          return null;
-        }
-      }
-      return digits(index, 2);
+    if (index < 0 || index >= 24) {
+      return null;
     }
-
-    return null;
+    DateTime time = _dayAt(_currentLeftIndex);
+    if (_isMinDay(time)) {
+      // Hours run minTime.hour..23.
+      return index < 24 - minTime!.hour ? digits(minTime!.hour + index, 2) : null;
+    } else if (_isMaxDay(time)) {
+      // Hours run 0..maxTime.hour.
+      return index <= maxTime!.hour ? digits(index, 2) : null;
+    }
+    return digits(index, 2);
   }
 
   @override
   String? rightStringAtIndex(int index) {
-    if (index >= 0 && index < 60) {
-      DateTime time = currentTime.add(Duration(days: _currentLeftIndex));
-      if (isAtSameDay(minTime, time) && _currentMiddleIndex == 0) {
-        if (index >= 0 && index < 60 - minTime!.minute) {
-          return digits(minTime!.minute + index, 2);
-        } else {
-          return null;
-        }
-      } else if (isAtSameDay(maxTime, time) &&
-          _currentMiddleIndex >= maxTime!.hour) {
-        if (index >= 0 && index <= maxTime!.minute) {
-          return digits(index, 2);
-        } else {
-          return null;
-        }
-      }
-      return digits(index, 2);
+    if (index < 0 || index >= 60) {
+      return null;
     }
-
-    return null;
+    DateTime time = _dayAt(_currentLeftIndex);
+    if (_isMinDay(time) && _currentMiddleIndex == 0) {
+      // Minutes run minTime.minute..59 at the earliest hour.
+      return index < 60 - minTime!.minute
+          ? digits(minTime!.minute + index, 2)
+          : null;
+    } else if (_isMaxDay(time) && _currentMiddleIndex >= maxTime!.hour) {
+      // Minutes run 0..maxTime.minute at the latest hour.
+      return index <= maxTime!.minute ? digits(index, 2) : null;
+    }
+    return digits(index, 2);
   }
 
   @override
   DateTime finalTime() {
-    DateTime time = currentTime.add(Duration(days: _currentLeftIndex));
+    DateTime time = _dayAt(_currentLeftIndex);
     var hour = _currentMiddleIndex;
     var minute = _currentRightIndex;
-    if (isAtSameDay(minTime, time)) {
+    // Undo the min-day column offset that was applied to the indices.
+    if (_isMinDay(time)) {
       hour += minTime!.hour;
-      if (minTime!.hour == hour) {
+      if (_currentMiddleIndex == 0) {
         minute += minTime!.minute;
       }
     }
