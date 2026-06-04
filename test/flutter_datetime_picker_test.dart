@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
+// date_format.dart is internal (not re-exported by the barrel), imported
+// directly so the formatter and its tokens can be exercised.
+import 'package:flutter_datetime_picker_plus/src/date_format.dart';
 
 void main() {
   group('DatePickerModel', () {
@@ -56,6 +59,275 @@ void main() {
       expect(model.leftStringAtIndex(0), isNotNull);
       expect(model.leftStringAtIndex(2), isNotNull);
       expect(model.leftStringAtIndex(3), isNull);
+    });
+  });
+
+  group('TimePickerModel', () {
+    final currentTime = DateTime(2020, 5, 10, 14, 30, 45);
+
+    test('seeds indices from currentTime h/m/s', () {
+      final model = TimePickerModel(currentTime: currentTime);
+      expect(model.currentLeftIndex(), 14);
+      expect(model.currentMiddleIndex(), 30);
+      expect(model.currentRightIndex(), 45);
+    });
+
+    test('finalTime reflects the seeded time', () {
+      final model = TimePickerModel(currentTime: currentTime);
+      final result = model.finalTime();
+      expect(result.year, 2020);
+      expect(result.month, 5);
+      expect(result.day, 10);
+      expect(result.hour, 14);
+      expect(result.minute, 30);
+      expect(result.second, 45);
+    });
+
+    test('finalTime reflects updated indices', () {
+      final model = TimePickerModel(currentTime: currentTime);
+      model.setLeftIndex(8);
+      model.setMiddleIndex(5);
+      model.setRightIndex(30);
+
+      final result = model.finalTime();
+      expect(result.hour, 8);
+      expect(result.minute, 5);
+      expect(result.second, 30);
+      // date is preserved
+      expect(result.year, 2020);
+      expect(result.month, 5);
+      expect(result.day, 10);
+    });
+
+    test('columns are zero-padded and terminate at their bounds', () {
+      final model = TimePickerModel(currentTime: currentTime);
+      // hours 0..23
+      expect(model.leftStringAtIndex(0), '00');
+      expect(model.leftStringAtIndex(9), '09');
+      expect(model.leftStringAtIndex(23), '23');
+      expect(model.leftStringAtIndex(24), isNull);
+      expect(model.leftStringAtIndex(-1), isNull);
+      // minutes / seconds 0..59
+      expect(model.middleStringAtIndex(59), '59');
+      expect(model.middleStringAtIndex(60), isNull);
+      expect(model.rightStringAtIndex(59), '59');
+      expect(model.rightStringAtIndex(60), isNull);
+    });
+
+    test('seconds column shown by default', () {
+      final model = TimePickerModel(currentTime: currentTime);
+      expect(model.leftDivider(), ':');
+      expect(model.rightDivider(), ':');
+      expect(model.layoutProportions(), [1, 1, 1]);
+    });
+
+    test('seconds column hidden collapses right column', () {
+      final model = TimePickerModel(
+        currentTime: currentTime,
+        showSecondsColumn: false,
+      );
+      expect(model.rightDivider(), '');
+      expect(model.layoutProportions(), [1, 1, 0]);
+    });
+
+    test('preserves UTC flag through finalTime', () {
+      final model =
+          TimePickerModel(currentTime: DateTime.utc(2020, 5, 10, 14, 30, 45));
+      expect(model.finalTime().isUtc, isTrue);
+    });
+  });
+
+  group('Time12hPickerModel', () {
+    test('12 AM (midnight) maps to hour 0', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 0, 15));
+      expect(model.currentLeftIndex(), 0);
+      expect(model.currentRightIndex(), 0); // AM
+      expect(model.finalTime().hour, 0);
+    });
+
+    test('12 PM (noon) maps to hour 12', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 12, 15));
+      expect(model.currentLeftIndex(), 0);
+      expect(model.currentRightIndex(), 1); // PM
+      expect(model.finalTime().hour, 12);
+    });
+
+    test('afternoon hour round-trips (2 PM => 14)', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 14, 30));
+      expect(model.currentLeftIndex(), 2);
+      expect(model.currentRightIndex(), 1); // PM
+      expect(model.finalTime().hour, 14);
+      expect(model.finalTime().minute, 30);
+    });
+
+    test('late evening round-trips (11 PM => 23)', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 23, 0));
+      expect(model.currentLeftIndex(), 11);
+      expect(model.currentRightIndex(), 1); // PM
+      expect(model.finalTime().hour, 23);
+    });
+
+    test('finalTime zeroes seconds', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 9, 30, 45));
+      expect(model.finalTime().second, 0);
+    });
+
+    test('left column shows 12 first then 01..11', () {
+      final model =
+          Time12hPickerModel(currentTime: DateTime(2020, 5, 10, 9, 0));
+      expect(model.leftStringAtIndex(0), '12');
+      expect(model.leftStringAtIndex(1), '01');
+      expect(model.leftStringAtIndex(11), '11');
+      expect(model.leftStringAtIndex(12), isNull);
+    });
+
+    test('right column exposes localized AM/PM only', () {
+      final model = Time12hPickerModel(
+        currentTime: DateTime(2020, 5, 10, 9, 0),
+        locale: LocaleType.en,
+      );
+      expect(model.rightStringAtIndex(0), 'AM');
+      expect(model.rightStringAtIndex(1), 'PM');
+      expect(model.rightStringAtIndex(2), isNull);
+    });
+  });
+
+  group('DateTimePickerModel', () {
+    test('without bounds, finalTime keeps date + h/m and drops seconds', () {
+      final model = DateTimePickerModel(
+        currentTime: DateTime(2020, 5, 10, 14, 30, 45),
+      );
+      final result = model.finalTime();
+      expect(result.year, 2020);
+      expect(result.month, 5);
+      expect(result.day, 10);
+      expect(result.hour, 14);
+      expect(result.minute, 30);
+      expect(result.second, 0);
+    });
+
+    test('without bounds, hour/minute columns span full ranges', () {
+      final model = DateTimePickerModel(
+        currentTime: DateTime(2020, 5, 10, 8, 0),
+      );
+      // hours 0..23
+      expect(model.middleStringAtIndex(0), '00');
+      expect(model.middleStringAtIndex(23), '23');
+      expect(model.middleStringAtIndex(24), isNull);
+      // minutes 0..59
+      expect(model.rightStringAtIndex(59), '59');
+      expect(model.rightStringAtIndex(60), isNull);
+      // left (day) column is non-null at the start
+      expect(model.leftStringAtIndex(0), isNotNull);
+    });
+
+    test('maxTime terminates the day column after the max day', () {
+      final model = DateTimePickerModel(
+        currentTime: DateTime(2020, 5, 10, 8, 0),
+        maxTime: DateTime(2020, 5, 12, 20, 0),
+      );
+      // day 0 = 2020-05-10 ... day 2 = 2020-05-12 (max day, allowed)
+      expect(model.leftStringAtIndex(0), isNotNull);
+      expect(model.leftStringAtIndex(2), isNotNull);
+      // day 3 = 2020-05-13 is past maxTime
+      expect(model.leftStringAtIndex(3), isNull);
+    });
+
+    test('minTime offsets the hour column on the min day', () {
+      final model = DateTimePickerModel(
+        currentTime: DateTime(2020, 5, 10, 8, 0),
+        minTime: DateTime(2020, 5, 10, 6, 0),
+      );
+      // hours start at the min hour (06) and run to 23
+      expect(model.middleStringAtIndex(0), '06');
+      expect(model.middleStringAtIndex(17), '23');
+      expect(model.middleStringAtIndex(18), isNull);
+    });
+
+    test('minTime offset round-trips through finalTime', () {
+      final model = DateTimePickerModel(
+        currentTime: DateTime(2020, 5, 10, 8, 0),
+        minTime: DateTime(2020, 5, 10, 6, 0),
+      );
+      final result = model.finalTime();
+      expect(result.year, 2020);
+      expect(result.month, 5);
+      expect(result.day, 10);
+      expect(result.hour, 8);
+      expect(result.minute, 0);
+    });
+
+    test('layout gives the date column the most space', () {
+      final model = DateTimePickerModel(currentTime: DateTime(2020, 5, 10));
+      expect(model.layoutProportions(), [4, 1, 1]);
+      expect(model.rightDivider(), ':');
+    });
+  });
+
+  group('formatDate', () {
+    final date = DateTime(1989, 2, 5, 9, 4, 7, 99);
+
+    test('numeric date tokens', () {
+      expect(formatDate(date, [yyyy], LocaleType.en), '1989');
+      expect(formatDate(date, [yy], LocaleType.en), '89');
+      expect(formatDate(date, [mm], LocaleType.en), '02');
+      expect(formatDate(date, [m], LocaleType.en), '2');
+      expect(formatDate(date, [dd], LocaleType.en), '05');
+      expect(formatDate(date, [d], LocaleType.en), '5');
+    });
+
+    test('numeric time tokens', () {
+      expect(formatDate(date, [HH], LocaleType.en), '09');
+      expect(formatDate(date, [H], LocaleType.en), '9');
+      expect(formatDate(date, [hh], LocaleType.en), '09');
+      expect(formatDate(date, [h], LocaleType.en), '9');
+      expect(formatDate(date, [nn], LocaleType.en), '04');
+      expect(formatDate(date, [n], LocaleType.en), '4');
+      expect(formatDate(date, [ss], LocaleType.en), '07');
+    });
+
+    test('12-hour token wraps the afternoon', () {
+      final pm = DateTime(1989, 2, 5, 15, 0);
+      expect(formatDate(pm, [hh], LocaleType.en), '03');
+      expect(formatDate(pm, [h], LocaleType.en), '3');
+    });
+
+    test('am token resolves AM/PM by locale', () {
+      expect(formatDate(DateTime(1989, 2, 5, 9), [am], LocaleType.en), 'AM');
+      expect(formatDate(DateTime(1989, 2, 5, 15), [am], LocaleType.en), 'PM');
+    });
+
+    test('localized month names', () {
+      expect(formatDate(date, [MM], LocaleType.en), 'February');
+      expect(formatDate(date, [M], LocaleType.en), 'Feb');
+    });
+
+    test('localized weekday name', () {
+      // 2018-01-14 is a Sunday
+      expect(formatDate(DateTime(2018, 1, 14), [D], LocaleType.en), 'Sun');
+    });
+
+    test('literal tokens are passed through and concatenated', () {
+      expect(
+        formatDate(date, [yyyy, '-', mm, '-', dd], LocaleType.en),
+        '1989-02-05',
+      );
+    });
+  });
+
+  group('digits', () {
+    test('left-pads with zeroes to the requested width', () {
+      expect(digits(5, 2), '05');
+      expect(digits(7, 3), '007');
+    });
+
+    test('does not truncate values wider than the width', () {
+      expect(digits(123, 2), '123');
     });
   });
 
