@@ -1,0 +1,37 @@
+# NOTE: .pubignore REPLACES git-based file selection during `pub publish`
+# (it does not extend .gitignore). So this must re-list everything we don't
+# want shipped, mirroring .gitignore, plus dev-only files like CLAUDE.md.
+
+# Dev-tooling file, not useful to package consumers
+CLAUDE.md
+
+# Lockfile (library — not published)
+/pubspec.lock
+
+# Dart/Flutter build output
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+**/doc/api/
+
+# FVM
+.fvm/
+.fvmrc
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Android wrapper / generated
+**/android/gradle/wrapper/gradle-wrapper.jar
+**/android/gradlew
+**/android/gradlew.bat
+**/android/.gradle/
+**/android/local.properties
+
+# Misc
+.DS_Store
+*.log
