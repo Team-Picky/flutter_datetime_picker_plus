@@ -8,14 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-```bash
-flutter pub get                 # install dependencies
-flutter analyze                 # static analysis / lint (uses default Flutter lints)
-flutter test                    # run all tests
-flutter test test/some_test.dart           # run a single test file
-flutter test --name "pattern"               # run tests matching a name
+This repo pins its Flutter SDK with [FVM](https://fvm.app) (version in `.fvmrc`). Prefix Flutter/Dart commands with `fvm` so they run against the pinned SDK:
 
-cd example && flutter run       # run the demo app to visually verify pickers
+```bash
+fvm flutter pub get                 # install dependencies
+fvm flutter analyze                 # static analysis / lint (uses default Flutter lints)
+fvm flutter test                    # run all tests
+fvm flutter test test/some_test.dart        # run a single test file
+fvm flutter test --name "pattern"            # run tests matching a name
+
+cd example && fvm flutter run       # run the demo app to visually verify pickers
 ```
 
 There is no custom `analysis_options.yaml` — analysis uses Flutter defaults.
