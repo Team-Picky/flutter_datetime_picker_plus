@@ -1,3 +1,5 @@
+## [2.3.0] 
+Added translations for ta
 ## [2.2.0] 
 Added translations for bs,cs,el,hr,sk,sl,sr 
 ## [2.1.0] - Indian translations
