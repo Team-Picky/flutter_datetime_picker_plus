@@ -13,7 +13,7 @@ void main() {
         maxTime: maxTime,
       );
 
-      final result = model.finalTime()!;
+      final result = model.finalTime();
       expect(result.year, 2019);
       expect(result.month, 6);
       expect(result.day, 15);
@@ -26,7 +26,7 @@ void main() {
         maxTime: maxTime,
       );
 
-      final result = model.finalTime()!;
+      final result = model.finalTime();
       expect(result.year, maxTime.year);
       expect(result.month, maxTime.month);
       expect(result.day, maxTime.day);
@@ -39,7 +39,7 @@ void main() {
         maxTime: maxTime,
       );
 
-      final result = model.finalTime()!;
+      final result = model.finalTime();
       expect(result.year, minTime.year);
       expect(result.month, minTime.month);
       expect(result.day, minTime.day);
