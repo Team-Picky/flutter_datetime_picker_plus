@@ -74,3 +74,6 @@ build/
 
 # FVM Version Cache
 .fvm/
+
+# Local dev tracking (not published)
+.dev/
