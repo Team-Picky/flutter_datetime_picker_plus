@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`flutter_datetime_picker_plus` is a published Flutter package (pub.dev) providing bottom-sheet date/time pickers with localization into ~45 languages. It is a maintained fork of the original `flutter_datetime_picker`, updated for Dart 3.0 / Flutter >=3.10.0. The package is consumed as a library — there is no app entrypoint except the demo in `example/`.
+`flutter_datetime_picker_plus` is a published Flutter package (pub.dev) providing bottom-sheet date/time pickers with localization into ~45 languages. It is a maintained fork of the original `flutter_datetime_picker`, now requiring Flutter >=3.47.0, where Material and Cupertino come from the standalone `material_ui` / `cupertino_ui` packages (import those, not `package:flutter/material.dart` / `cupertino.dart`). The package is consumed as a library — there is no app entrypoint except the demo in `example/`.
 
 ## Commands
 

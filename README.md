@@ -2,7 +2,7 @@
 
 Forked from [(Pub) flutter_datetime_picker](https://pub.dev/packages/flutter_datetime_picker) as it had issues with dart 3.0/Flutter 3.10.
 
-This package only works on Flutter >=3.10.0. If you need an older version, please use the original package.
+This package requires Flutter >=3.47.0, as it uses the standalone [`material_ui`](https://pub.dev/packages/material_ui) and [`cupertino_ui`](https://pub.dev/packages/cupertino_ui) packages. On Flutter 3.10–3.44, use version 2.x of this package. If you need an older version, please use the original package.
 
 [(Pub) flutter_datetime_picker_plus](https://pub.dev/packages/flutter_datetime_picker_plus)
 
