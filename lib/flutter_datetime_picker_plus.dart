@@ -3,6 +3,12 @@ library flutter_datetime_picker;
 import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerDeviceKind,
+        PointerScrollEvent,
+        PointerSignalEvent;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_datetime_picker_plus/src/date_model.dart';
 import 'package:flutter_datetime_picker_plus/src/datetime_picker_theme.dart'
@@ -416,6 +422,31 @@ class _DatePickerState extends State<_DatePickerComponent> {
     );
   }
 
+  // Flutter scrolls a wheel by the event's pixel delta, so one mouse wheel
+  // notch (typically 100 pixels) skipped several rows. Move one row per notch
+  // instead. Trackpads keep scrolling by distance.
+  void _scrollOneRow(
+    PointerSignalEvent event,
+    FixedExtentScrollController controller,
+    StringAtIndexCallBack stringAtIndexCB,
+  ) {
+    if (event is! PointerScrollEvent ||
+        event.kind != PointerDeviceKind.mouse ||
+        event.scrollDelta.dy == 0) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(event, (event) {
+      if (!controller.hasClients) return;
+      final scrollEvent = event as PointerScrollEvent;
+      final target =
+          controller.selectedItem + (scrollEvent.scrollDelta.dy > 0 ? 1 : -1);
+      if (stringAtIndexCB(target) != null) {
+        controller.jumpToItem(target);
+      }
+      scrollEvent.respond(allowPlatformDefault: false);
+    });
+  }
+
   void _notifyDateChanged() {
     if (widget.onChanged != null) {
       widget.onChanged!(widget.pickerModel.finalTime()!);
@@ -479,13 +510,22 @@ class _DatePickerState extends State<_DatePickerComponent> {
               if (content == null) {
                 return null;
               }
-              return Container(
-                height: theme.itemHeight,
-                alignment: Alignment.center,
-                child: Text(
-                  content,
-                  style: theme.itemStyle,
-                  textAlign: TextAlign.start,
+              // Rows are below the wheel's Scrollable in the hit test, so this
+              // listener claims mouse wheel events before it does.
+              return Listener(
+                onPointerSignal: (event) => _scrollOneRow(
+                  event,
+                  scrollController,
+                  stringAtIndexCB,
+                ),
+                child: Container(
+                  height: theme.itemHeight,
+                  alignment: Alignment.center,
+                  child: Text(
+                    content,
+                    style: theme.itemStyle,
+                    textAlign: TextAlign.start,
+                  ),
                 ),
               );
             },
