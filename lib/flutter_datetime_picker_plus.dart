@@ -305,19 +305,86 @@ class _DatePickerState extends State<_DatePickerComponent> {
       middleScrollCtrl,
       rightScrollCtrl;
 
+  // True while this state moves the wheels itself, so the resulting scroll
+  // callbacks are not treated as user selections.
+  bool _adjustingScrollPositions = false;
+
+  List<FixedExtentScrollController> get _scrollCtrls =>
+      [leftScrollCtrl, middleScrollCtrl, rightScrollCtrl];
+
   @override
   void initState() {
     super.initState();
-    refreshScrollOffset();
-  }
-
-  void refreshScrollOffset() {
     leftScrollCtrl = FixedExtentScrollController(
         initialItem: widget.pickerModel.currentLeftIndex());
     middleScrollCtrl = FixedExtentScrollController(
         initialItem: widget.pickerModel.currentMiddleIndex());
     rightScrollCtrl = FixedExtentScrollController(
         initialItem: widget.pickerModel.currentRightIndex());
+    widget.route.animation!.addStatusListener(_onRouteAnimationStatus);
+  }
+
+  @override
+  void dispose() {
+    widget.route.animation!.removeStatusListener(_onRouteAnimationStatus);
+    for (final controller in _scrollCtrls) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onRouteAnimationStatus(AnimationStatus status) {
+    // The sheet is closing. Tapping a row makes CupertinoPicker scroll to it
+    // for longer than the exit transition and then read its controller, which
+    // throws once the picker is gone. Stop those scrolls now.
+    if (status == AnimationStatus.reverse) {
+      _stopScrolling();
+    }
+  }
+
+  void _stopScrolling() {
+    _adjustScrollPositions(() {
+      for (final controller in _scrollCtrls) {
+        if (controller.hasClients &&
+            controller.position.isScrollingNotifier.value) {
+          controller.jumpToItem(controller.selectedItem);
+        }
+      }
+    });
+  }
+
+  // Moves idle wheels to the model's indices after a selection changed them
+  // (for example, the day clamped after picking a shorter month). Wheels that
+  // are still scrolling are left alone; they report their own selection when
+  // they stop.
+  void _alignScrollPositions() {
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      final indices = [
+        widget.pickerModel.currentLeftIndex(),
+        widget.pickerModel.currentMiddleIndex(),
+        widget.pickerModel.currentRightIndex(),
+      ];
+      _adjustScrollPositions(() {
+        for (var i = 0; i < _scrollCtrls.length; i++) {
+          final controller = _scrollCtrls[i];
+          if (controller.hasClients &&
+              !controller.position.isScrollingNotifier.value &&
+              controller.selectedItem != indices[i]) {
+            controller.jumpToItem(indices[i]);
+          }
+        }
+      });
+    });
+  }
+
+  void _adjustScrollPositions(VoidCallback adjust) {
+    _adjustingScrollPositions = true;
+    try {
+      adjust();
+    } finally {
+      _adjustingScrollPositions = false;
+    }
   }
 
   @override
@@ -385,7 +452,8 @@ class _DatePickerState extends State<_DatePickerComponent> {
         decoration: BoxDecoration(color: theme.backgroundColor),
         child: NotificationListener(
           onNotification: (ScrollNotification notification) {
-            if (notification.depth == 0 &&
+            if (!_adjustingScrollPositions &&
+                notification.depth == 0 &&
                 notification is ScrollEndNotification &&
                 notification.metrics is FixedExtentMetrics) {
               final FixedExtentMetrics metrics =
@@ -401,7 +469,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
             scrollController: scrollController as FixedExtentScrollController,
             itemExtent: theme.itemHeight,
             onSelectedItemChanged: (int index) {
-              selectedChangedWhenScrolling(index);
+              if (!_adjustingScrollPositions) {
+                selectedChangedWhenScrolling(index);
+              }
             },
             useMagnifier: true,
             itemBuilder: (BuildContext context, int index) {
@@ -436,7 +506,7 @@ class _DatePickerState extends State<_DatePickerComponent> {
             Container(
               child: widget.pickerModel.layoutProportions()[0] > 0
                   ? _renderColumnView(
-                      ValueKey(widget.pickerModel.currentLeftIndex()),
+                      const ValueKey('left'),
                       theme,
                       widget.pickerModel.leftStringAtIndex,
                       leftScrollCtrl,
@@ -444,9 +514,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
                       widget.pickerModel.setLeftIndex(index);
                     }, (index) {
                       setState(() {
-                        refreshScrollOffset();
                         _notifyDateChanged();
                       });
+                      _alignScrollPositions();
                     })
                   : null,
             ),
@@ -457,7 +527,7 @@ class _DatePickerState extends State<_DatePickerComponent> {
             Container(
               child: widget.pickerModel.layoutProportions()[1] > 0
                   ? _renderColumnView(
-                      ValueKey(widget.pickerModel.currentLeftIndex()),
+                      const ValueKey('middle'),
                       theme,
                       widget.pickerModel.middleStringAtIndex,
                       middleScrollCtrl,
@@ -465,9 +535,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
                       widget.pickerModel.setMiddleIndex(index);
                     }, (index) {
                       setState(() {
-                        refreshScrollOffset();
                         _notifyDateChanged();
                       });
+                      _alignScrollPositions();
                     })
                   : null,
             ),
@@ -478,8 +548,7 @@ class _DatePickerState extends State<_DatePickerComponent> {
             Container(
               child: widget.pickerModel.layoutProportions()[2] > 0
                   ? _renderColumnView(
-                      ValueKey(widget.pickerModel.currentMiddleIndex() * 100 +
-                          widget.pickerModel.currentLeftIndex()),
+                      const ValueKey('right'),
                       theme,
                       widget.pickerModel.rightStringAtIndex,
                       rightScrollCtrl,
@@ -487,9 +556,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
                       widget.pickerModel.setRightIndex(index);
                     }, (index) {
                       setState(() {
-                        refreshScrollOffset();
                         _notifyDateChanged();
                       });
+                      _alignScrollPositions();
                     })
                   : null,
             ),
