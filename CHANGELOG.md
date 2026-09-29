@@ -1,3 +1,7 @@
+## 2.4.1
+
+- Raised the example app's minimum iOS version to 15.0 so it builds with current Xcode. The package itself is unchanged.
+
 ## 2.4.0
 
 - Added `titleActionsBuilder` to all `DatePicker.show*` methods, letting you replace the default Cancel/Done title bar with your own widget.
