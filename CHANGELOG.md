@@ -1,3 +1,7 @@
+## 3.0.0
+
+- **Breaking:** requires Flutter >=3.47.0 / Dart >=3.13.0. Flutter 3.47 moved the Material and Cupertino libraries out of the core SDK, so the package now depends on the standalone `material_ui` and `cupertino_ui` packages instead of `package:flutter/material.dart` and `package:flutter/cupertino.dart` ([#16](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/16)). Stay on 2.x if you're on an older Flutter.
+
 ## 2.4.1
 
 - Fixed a "Bad state: No element" error, and a lost selection, when tapping a row in one column while another is still scrolling, or closing the picker right after tapping a row ([#17](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/17)). The picker also no longer leaks scroll controllers.
