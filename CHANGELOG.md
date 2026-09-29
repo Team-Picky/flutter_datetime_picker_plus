@@ -1,6 +1,7 @@
 ## 2.4.1
 
 - Fixed a "Bad state: No element" error, and a lost selection, when tapping a row in one column while another is still scrolling, or closing the picker right after tapping a row ([#17](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/17)). The picker also no longer leaks scroll controllers.
+- Fixed `DatePicker.showDateTimePicker` skipping or repeating a day, and ignoring `minTime`, around daylight saving time transitions ([#18](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/18)).
 - Raised the example app's minimum iOS version to 15.0 so it builds with current Xcode. The package itself is unchanged.
 
 ## 2.4.0
