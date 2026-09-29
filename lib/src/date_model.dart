@@ -352,8 +352,7 @@ class DatePickerModel extends CommonPickerModel {
     } else if (locale == LocaleType.ko) {
       return '$month월';
     } else {
-      final monthStrings =
-          i18nObjInLocale(locale)['monthLong'] as List<String>;
+      final monthStrings = i18nObjInLocale(locale)['monthLong'] as List<String>;
       return monthStrings[month - 1];
     }
   }
@@ -591,7 +590,16 @@ class DateTimePickerModel extends CommonPickerModel {
   }
 
   /// The calendar day shown at [dayIndex] of the left column.
-  DateTime _dayAt(int dayIndex) => currentTime.add(Duration(days: dayIndex));
+  ///
+  /// Built from the calendar date: adding 24 hours lands on the wrong day
+  /// across a DST transition, and keeping currentTime's hour and minute fails
+  /// on days where that time does not exist. Only the date of the result is
+  /// used, so noon is enough.
+  DateTime _dayAt(int dayIndex) => currentTime.isUtc
+      ? DateTime.utc(
+          currentTime.year, currentTime.month, currentTime.day + dayIndex, 12)
+      : DateTime(
+          currentTime.year, currentTime.month, currentTime.day + dayIndex, 12);
 
   /// Whether [time] falls on the same day as [minTime] (false if unbounded).
   bool _isMinDay(DateTime time) => isAtSameDay(minTime, time);
@@ -602,7 +610,8 @@ class DateTimePickerModel extends CommonPickerModel {
   bool isAtSameDay(DateTime? day1, DateTime? day2) {
     return day1 != null &&
         day2 != null &&
-        day1.difference(day2).inDays == 0 &&
+        day1.year == day2.year &&
+        day1.month == day2.month &&
         day1.day == day2.day;
   }
 
@@ -656,7 +665,9 @@ class DateTimePickerModel extends CommonPickerModel {
     DateTime time = _dayAt(_currentLeftIndex);
     if (_isMinDay(time)) {
       // Hours run minTime.hour..23.
-      return index < 24 - minTime!.hour ? digits(minTime!.hour + index, 2) : null;
+      return index < 24 - minTime!.hour
+          ? digits(minTime!.hour + index, 2)
+          : null;
     } else if (_isMaxDay(time)) {
       // Hours run 0..maxTime.hour.
       return index <= maxTime!.hour ? digits(index, 2) : null;
