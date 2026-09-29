@@ -4,7 +4,11 @@ import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/gestures.dart'
-    show GestureBinding, PointerScrollEvent, PointerSignalEvent;
+    show
+        GestureBinding,
+        PointerDeviceKind,
+        PointerScrollEvent,
+        PointerSignalEvent;
 import 'package:flutter/rendering.dart'
     show BoxHitTestEntry, BoxHitTestResult, RenderProxyBox;
 import 'package:material_ui/material_ui.dart';
@@ -487,7 +491,15 @@ class _DatePickerState extends State<_DatePickerComponent> {
   }
 
   Widget _renderPickerView(picker_theme.DatePickerTheme theme) {
-    Widget itemView = _renderItemView(theme);
+    // On web and desktop, Flutter only drag-scrolls with touch, stylus and
+    // trackpad by default. Let the wheels be dragged with a mouse too.
+    final scrollBehavior = ScrollConfiguration.of(context);
+    Widget itemView = ScrollConfiguration(
+      behavior: scrollBehavior.copyWith(
+        dragDevices: {...scrollBehavior.dragDevices, PointerDeviceKind.mouse},
+      ),
+      child: _renderItemView(theme),
+    );
     if (widget.route.showTitleActions == true) {
       return Column(
         children: <Widget>[
