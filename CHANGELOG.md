@@ -1,5 +1,6 @@
 ## 3.0.1
 
+- The picker columns can now be dragged with a mouse on web and desktop ([#2](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/2)).
 - Scrolling a picker column with a mouse wheel now moves one row per notch, instead of skipping several rows or, with some mice on web, not moving at all ([#6](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/6)).
 
 ## 3.0.0
