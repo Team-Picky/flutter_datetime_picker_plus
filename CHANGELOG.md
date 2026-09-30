@@ -1,3 +1,7 @@
+## 3.0.1
+
+- Scrolling a picker column with a mouse wheel now moves one row per notch, instead of skipping several rows or, with some mice on web, not moving at all ([#6](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/6)).
+
 ## 3.0.0
 
 - **Breaking:** requires Flutter >=3.47.0 / Dart >=3.13.0. Flutter 3.47 moved the Material and Cupertino libraries out of the core SDK, so the package now depends on the standalone `material_ui` and `cupertino_ui` packages instead of `package:flutter/material.dart` and `package:flutter/cupertino.dart` ([#16](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/16)). Stay on 2.x if you're on an older Flutter.
