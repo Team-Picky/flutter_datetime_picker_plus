@@ -1,6 +1,6 @@
 ## 3.0.1
 
-- Scrolling a picker column with a mouse wheel now moves one row per notch instead of skipping several ([#6](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/6)).
+- Scrolling a picker column with a mouse wheel now moves one row per notch, instead of skipping several rows or, with some mice on web, not moving at all ([#6](https://github.com/Team-Picky/flutter_datetime_picker_plus/issues/6)).
 
 ## 3.0.0
 

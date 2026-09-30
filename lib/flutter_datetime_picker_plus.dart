@@ -4,11 +4,9 @@ import 'dart:async';
 
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/gestures.dart'
-    show
-        GestureBinding,
-        PointerDeviceKind,
-        PointerScrollEvent,
-        PointerSignalEvent;
+    show GestureBinding, PointerScrollEvent, PointerSignalEvent;
+import 'package:flutter/rendering.dart'
+    show BoxHitTestEntry, BoxHitTestResult, RenderProxyBox;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_datetime_picker_plus/src/date_model.dart';
 import 'package:flutter_datetime_picker_plus/src/datetime_picker_theme.dart'
@@ -306,6 +304,14 @@ class _DatePickerComponent extends StatefulWidget {
   }
 }
 
+// A scroll event this long after the previous one is a new mouse wheel notch.
+const Duration _kWheelNotchPause = Duration(milliseconds: 100);
+
+class _WheelScroll {
+  Duration? lastEvent;
+  double pending = 0;
+}
+
 class _DatePickerState extends State<_DatePickerComponent> {
   late FixedExtentScrollController leftScrollCtrl,
       middleScrollCtrl,
@@ -314,6 +320,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
   // True while this state moves the wheels itself, so the resulting scroll
   // callbacks are not treated as user selections.
   bool _adjustingScrollPositions = false;
+
+  // Mouse wheel and web trackpad scrolling state, per column.
+  final _wheelScrolls = <FixedExtentScrollController, _WheelScroll>{};
 
   List<FixedExtentScrollController> get _scrollCtrls =>
       [leftScrollCtrl, middleScrollCtrl, rightScrollCtrl];
@@ -422,28 +431,52 @@ class _DatePickerState extends State<_DatePickerComponent> {
     );
   }
 
-  // Flutter scrolls a wheel by the event's pixel delta, so one mouse wheel
-  // notch (typically 100 pixels) skipped several rows. Move one row per notch
-  // instead. Trackpads keep scrolling by distance.
-  void _scrollOneRow(
+  // Flutter scrolls a wheel by the event's pixel delta and then snaps to the
+  // nearest row, so one mouse wheel notch skipped several rows (100 pixels on
+  // Windows) or none (a smooth-scrolling mouse on web sends ~13 pixels, which
+  // snaps back). On web, such a mouse is often reported as a trackpad, so tell
+  // the two apart by timing instead: a scroll event after a pause is a notch
+  // and moves one row, and events in a continuous stream (a trackpad swipe)
+  // move one row per row height scrolled. Desktop trackpads send pan/zoom
+  // events instead, which are left to the Scrollable.
+  void _scrollByRows(
     PointerSignalEvent event,
     FixedExtentScrollController controller,
     StringAtIndexCallBack stringAtIndexCB,
   ) {
-    if (event is! PointerScrollEvent ||
-        event.kind != PointerDeviceKind.mouse ||
-        event.scrollDelta.dy == 0) {
+    if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) {
       return;
     }
     GestureBinding.instance.pointerSignalResolver.register(event, (event) {
-      if (!controller.hasClients) return;
       final scrollEvent = event as PointerScrollEvent;
-      final target =
-          controller.selectedItem + (scrollEvent.scrollDelta.dy > 0 ? 1 : -1);
+      scrollEvent.respond(allowPlatformDefault: false);
+      if (!controller.hasClients) return;
+
+      final delta = scrollEvent.scrollDelta.dy;
+      final rowHeight = widget.route.theme.itemHeight;
+      final wheel = _wheelScrolls.putIfAbsent(controller, () => _WheelScroll());
+      final lastEvent = wheel.lastEvent;
+      wheel.lastEvent = scrollEvent.timeStamp;
+
+      int rows;
+      if (lastEvent == null ||
+          scrollEvent.timeStamp - lastEvent >= _kWheelNotchPause) {
+        rows = delta.sign.toInt();
+        wheel.pending = 0;
+      } else {
+        if (wheel.pending.sign != delta.sign) wheel.pending = 0;
+        wheel.pending += delta;
+        if (wheel.pending.abs() < rowHeight) return;
+        rows = wheel.pending.sign.toInt();
+        // At most one row per event; drop any backlog beyond that.
+        wheel.pending = (wheel.pending - rows * rowHeight)
+            .clamp(-rowHeight + 1, rowHeight - 1);
+      }
+
+      final target = controller.selectedItem + rows;
       if (stringAtIndexCB(target) != null) {
         controller.jumpToItem(target);
       }
-      scrollEvent.respond(allowPlatformDefault: false);
     });
   }
 
@@ -494,31 +527,26 @@ class _DatePickerState extends State<_DatePickerComponent> {
             }
             return false;
           },
-          child: CupertinoPicker.builder(
-            key: key,
-            backgroundColor: theme.backgroundColor,
-            scrollController: scrollController as FixedExtentScrollController,
-            itemExtent: theme.itemHeight,
-            onSelectedItemChanged: (int index) {
-              if (!_adjustingScrollPositions) {
-                selectedChangedWhenScrolling(index);
-              }
-            },
-            useMagnifier: true,
-            itemBuilder: (BuildContext context, int index) {
-              final content = stringAtIndexCB(index);
-              if (content == null) {
-                return null;
-              }
-              // Rows are below the wheel's Scrollable in the hit test, so this
-              // listener claims mouse wheel events before it does.
-              return Listener(
-                onPointerSignal: (event) => _scrollOneRow(
-                  event,
-                  scrollController,
-                  stringAtIndexCB,
-                ),
-                child: Container(
+          child: _ScrollSignalListener(
+            onPointerSignal: (event) =>
+                _scrollByRows(event, scrollController, stringAtIndexCB),
+            child: CupertinoPicker.builder(
+              key: key,
+              backgroundColor: theme.backgroundColor,
+              scrollController: scrollController as FixedExtentScrollController,
+              itemExtent: theme.itemHeight,
+              onSelectedItemChanged: (int index) {
+                if (!_adjustingScrollPositions) {
+                  selectedChangedWhenScrolling(index);
+                }
+              },
+              useMagnifier: true,
+              itemBuilder: (BuildContext context, int index) {
+                final content = stringAtIndexCB(index);
+                if (content == null) {
+                  return null;
+                }
+                return Container(
                   height: theme.itemHeight,
                   alignment: Alignment.center,
                   child: Text(
@@ -526,9 +554,9 @@ class _DatePickerState extends State<_DatePickerComponent> {
                     style: theme.itemStyle,
                     textAlign: TextAlign.start,
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -716,5 +744,48 @@ class _BottomPickerLayout extends SingleChildLayoutDelegate {
   @override
   bool shouldRelayout(_BottomPickerLayout oldDelegate) {
     return progress != oldDelegate.progress;
+  }
+}
+
+/// Calls [onPointerSignal] for pointer signals (such as mouse wheel scrolls)
+/// before its descendants receive them.
+///
+/// Pointer events are dispatched to the deepest hit widget first, and a
+/// scroll event goes to the first handler that registers with the
+/// [PointerSignalResolver]. A plain [Listener] around a scroll view would
+/// therefore always lose to the scroll view's own handler. This widget adds
+/// itself to the hit test result before its children, so it registers first.
+class _ScrollSignalListener extends SingleChildRenderObjectWidget {
+  const _ScrollSignalListener({required this.onPointerSignal, super.child});
+
+  final ValueChanged<PointerSignalEvent> onPointerSignal;
+
+  @override
+  _RenderScrollSignalListener createRenderObject(BuildContext context) =>
+      _RenderScrollSignalListener(onPointerSignal);
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _RenderScrollSignalListener renderObject) {
+    renderObject.onPointerSignal = onPointerSignal;
+  }
+}
+
+class _RenderScrollSignalListener extends RenderProxyBox {
+  _RenderScrollSignalListener(this.onPointerSignal);
+
+  ValueChanged<PointerSignalEvent> onPointerSignal;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position)) return false;
+    result.add(BoxHitTestEntry(this, position));
+    hitTestChildren(result, position: position);
+    return true;
+  }
+
+  @override
+  void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
+    if (event is PointerSignalEvent) onPointerSignal(event);
   }
 }
